@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Text Analytics</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="analytics-container">
+        <div class="toolbar">
+            <h1><i class="fas fa-chart-pie"></i> sentiment analysis tool</h1>
+            <div class="badge">AI-Powered Analysis v2.1</div>
+        </div>
+        
+        <div class="analysis-panel">
+            <div class="input-section">
+                <textarea id="text-input" placeholder="Enter text for analysis..."></textarea>
+                <button onclick="analyze()">
+                    <i class="fas fa-rocket"></i> Analyze Text
+                </button>
+            </div>
+            
+            <div id="result" class="hidden">
+                <div class="analysis-summary">
+                    <div class="result-header">
+                        <i class="fas fa-file-medical"></i>
+                        <h3>Comprehensive Analysis</h3>
+                    </div>
+                    
+                    <div class="original-text"></div>
+                    
+                    <div class="correction-section">
+                        <div class="corrected-header">
+                            <i class="fas fa-magic"></i>
+                            <h4>Enhanced Version</h4>
+                        </div>
+                        <div class="corrected-text"></div>
+                    </div>
+
+                    <div class="explanation"></div>
+                    
+                    <div class="confidence-metric">
+                        <div class="sentiment-badge"></div>
+                        <div class="confidence-score"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function analyze() {
+            const text = document.getElementById('text-input').value;
+            const resultDiv = document.getElementById('result');
+            
+            if (!text) {
+                showResult("Please provide text for analysis", "error");
+                return;
+            }
+
+            try {
+                resultDiv.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i> Analyzing...</div>';
+                resultDiv.className = 'visible loading';
+
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: text })
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    showResult(`Analysis Error: ${data.error}`, "error");
+                    return;
+                }
+
+                const confidencePercent = (data.confidence * 100).toFixed(1);
+                const strength = getConfidenceStrength(data.confidence);
+                const explanation = generateExplanation(data.sentiment, strength);
+
+                showResult(`
+                    <div class="original-text">"${data.text}"</div>
+                    <div class="correction-section">
+                        <div class="corrected-header">
+                            <i class="fas fa-magic"></i>
+                            <h4>Enhanced Version</h4>
+                        </div>
+                        <div class="corrected-text">"${data.corrected}"</div>
+                    </div>
+                    <div class="explanation">${explanation}</div>
+                    <div class="confidence-metric">
+                        <div class="sentiment-badge ${data.sentiment}">
+                            <i class="fas fa-${getSentimentIcon(data.sentiment)}"></i>
+                            ${data.sentiment}
+                        </div>
+                        <div class="confidence-score">
+                            <span class="score">${confidencePercent}%</span>
+                            <span class="strength">${strength} confidence</span>
+                        </div>
+                    </div>
+                `, data.sentiment);
+                
+            } catch (error) {
+                showResult(`Connection Error: ${error.message}`, "error");
+            }
+        }
+
+        function showResult(html, sentiment) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = html;
+            resultDiv.className = `visible ${sentiment}`;
+        }
+
+        function getSentimentIcon(sentiment) {
+            switch(sentiment) {
+                case 'positive': return 'smile';
+                case 'negative': return 'frown';
+                default: return 'meh';
+            }
+        }
+
+        function generateExplanation(sentiment, strength) {
+            return `This text shows <strong>${strength}</strong> ${sentiment} sentiment.`;
+        }
+
+        function getConfidenceStrength(confidence) {
+            if (confidence > 0.8) return 'very strong';
+            if (confidence > 0.6) return 'strong';
+            if (confidence > 0.4) return 'moderate';
+            return 'weak';
+        }
+    </script>
+</body>
+</html>
